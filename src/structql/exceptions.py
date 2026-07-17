@@ -28,3 +28,15 @@ class SchemaError(StructQLError):
 
 class StorageError(StructQLError):
     """Raised for storage-layer failures (e.g. reading/writing table data)."""
+
+
+class IncompatibleUnitsError(StructQLError):
+    """
+    Raised when comparing two Quantity values whose units measure different
+    things (e.g. comparing a pressure to a length: 35MPa vs 20m).
+
+    This is its own exception rather than a generic SchemaError because it's
+    raised at *comparison* time inside Quantity itself (domain/quantity.py),
+    not at schema-validation time - the caller may want to handle "nonsense
+    comparison" differently from "column doesn't exist".
+    """
