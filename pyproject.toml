@@ -50,4 +50,4 @@ target-version = ["py311"]
 # --- pytest ---------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v"
+addopts = "-v --cov=structql --cov-report=term-missing"

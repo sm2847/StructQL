@@ -53,3 +53,35 @@ def test_comparing_against_non_quantity_raises_type_error() -> None:
 
 def test_quantity_repr_round_trips_readably() -> None:
     assert repr(Quantity(35.0, Unit.MPA)) == "35.0MPa"
+
+
+def test_parse_valid_quantity() -> None:
+    assert Quantity.parse("35MPa") == Quantity(35.0, Unit.MPA)
+
+
+def test_parse_negative_and_decimal() -> None:
+    assert Quantity.parse("-4.5kN") == Quantity(-4.5, Unit.KN)
+
+
+def test_parse_strips_surrounding_whitespace() -> None:
+    assert Quantity.parse("  20m  ") == Quantity(20.0, Unit.M)
+
+
+def test_parse_disambiguates_m_from_mm() -> None:
+    assert Quantity.parse("500mm") == Quantity(500.0, Unit.MM)
+    assert Quantity.parse("20m") == Quantity(20.0, Unit.M)
+
+
+def test_parse_rejects_unknown_unit() -> None:
+    with pytest.raises(ValueError, match="not a recognised unit"):
+        Quantity.parse("35banana")
+
+
+def test_parse_rejects_missing_unit() -> None:
+    with pytest.raises(ValueError, match="not a valid quantity"):
+        Quantity.parse("35")
+
+
+def test_parse_rejects_space_before_unit() -> None:
+    with pytest.raises(ValueError, match="not a valid quantity"):
+        Quantity.parse("35 MPa")

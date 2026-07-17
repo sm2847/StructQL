@@ -10,11 +10,17 @@ quantities compare" is a property of quantities, not of whoever is asking.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from functools import total_ordering
 
 from structql.domain.units import Unit, dimension_of
 from structql.exceptions import IncompatibleUnitsError
+
+# Matches a leading number (optionally signed/decimal) followed immediately
+# by a unit suffix with no space, e.g. "35MPa", "20m", "-4.5kN". Anchored at
+# both ends so "35 MPa please" is rejected rather than partially matched.
+_QUANTITY_PATTERN = re.compile(r"^([+-]?\d+(?:\.\d+)?)([A-Za-z]+)$")
 
 
 @total_ordering  # generates <=, >, >= from __eq__ and __lt__ below
@@ -69,3 +75,36 @@ class Quantity:
 
     def __hash__(self) -> int:
         return hash((self.value, self.unit))
+
+    @classmethod
+    def parse(cls, raw: str) -> Quantity:
+        """
+        Parse a raw string like "35MPa" into a Quantity.
+
+        This is the ONLY place in the codebase that turns a string into a
+        Quantity. The CSV importer (M2) calls this rather than doing its
+        own regex work, so if the quantity syntax ever changes (e.g. adding
+        support for a space before the unit), it changes here once.
+
+        Raises ValueError - not a StructQL-specific exception - because
+        this is a low-level parsing failure. Callers with more context
+        (e.g. the importer, which knows the file/row/column) are expected
+        to catch it and re-raise something more informative.
+        """
+        match = _QUANTITY_PATTERN.match(raw.strip())
+        if match is None:
+            raise ValueError(
+                f"'{raw}' is not a valid quantity (expected format like '35MPa', got no "
+                f"number+unit match)."
+            )
+
+        number_text, unit_text = match.groups()
+        try:
+            unit = Unit(unit_text)
+        except ValueError:
+            known = ", ".join(u.value for u in Unit)
+            raise ValueError(
+                f"'{unit_text}' is not a recognised unit (known units: {known})."
+            ) from None
+
+        return cls(value=float(number_text), unit=unit)
