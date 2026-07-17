@@ -1,0 +1,53 @@
+[project]
+name = "structql"
+version = "0.1.0"
+description = "A domain-specific query language for structural engineering datasets."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Shanjeev" }]
+
+dependencies = [
+    "typer>=0.12.0",
+    "matplotlib>=3.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.5.0",
+    "black>=24.0.0",
+    "pre-commit>=3.7.0",
+]
+
+[project.scripts]
+structql = "structql.cli:app"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --- Ruff: linting + import sorting -----------------------------------
+# We lean on Ruff for linting (it subsumes flake8/isort/pyupgrade) and
+# Black purely for formatting. Splitting the two responsibilities keeps
+# each tool doing one job well (same SRP idea as the code itself).
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+# --- Black: formatting only ---------------------------------------------
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+# --- pytest ---------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --cov=structql --cov-report=term-missing"
