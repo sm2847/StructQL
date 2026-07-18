@@ -20,6 +20,7 @@ from pathlib import Path
 
 import typer
 
+from structql.charts.chart_export import export_chart
 from structql.domain.row import Value
 from structql.engine.executor import QueryResult, execute
 from structql.exceptions import StructQLError
@@ -72,6 +73,39 @@ def query_command(
         raise typer.Exit(code=1) from None
 
     _print_result(result)
+
+
+@app.command(name="chart")
+def chart_command(
+    csv_path: Path = typer.Argument(..., help="Path to the CSV file to query."),  # noqa: B008
+    query_string: str = typer.Argument(..., help="The StructQL query to run."),  # noqa: B008
+    schema_path: Path = typer.Option(  # noqa: B008
+        ..., "--schema", "-s", help="Path to a schema JSON file describing the CSV's columns."
+    ),
+    x_column: str = typer.Option(..., "--x", help="Column to plot on the X axis."),  # noqa: B008
+    y_column: str = typer.Option(..., "--y", help="Column to plot on the Y axis."),  # noqa: B008
+    output_path: Path = typer.Option(  # noqa: B008
+        Path("chart.png"), "--out", "-o", help="Where to save the chart image."
+    ),
+) -> None:
+    """Run a query and save a scatter chart of two of its columns.
+
+    The X and Y columns are given explicitly via --x/--y rather than
+    inferred from SELECT column order - explicit flags don't silently
+    break if the SELECT list is ever reordered.
+
+    Example:
+        structql chart Piles.csv "SELECT * FROM Piles" --schema Piles.schema.json \\
+            --x Depth --y CutoffLoad --out piles.png
+    """
+    try:
+        result = _run_query(csv_path, query_string, schema_path)
+        saved_path = export_chart(result, x_column, y_column, output_path)
+    except StructQLError as exc:
+        typer.secho(f"Error: {exc}", fg=typer.colors.RED, err=True)
+        raise typer.Exit(code=1) from None
+
+    typer.echo(f"Chart saved to {saved_path}")
 
 
 def _run_query(csv_path: Path, query_string: str, schema_path: Path) -> QueryResult:

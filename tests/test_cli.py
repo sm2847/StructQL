@@ -146,3 +146,54 @@ def test_query_command_unknown_column_exits_nonzero(tmp_path: Path) -> None:
 
     assert result.exit_code == 1
     assert "Error:" in result.output
+
+
+def test_chart_command_saves_a_file(tmp_path: Path) -> None:
+    csv_path, schema_path = _write_bridges_fixture(tmp_path)
+    output_path = tmp_path / "chart.png"
+
+    result = runner.invoke(
+        app,
+        [
+            "chart",
+            str(csv_path),
+            "SELECT * FROM Bridges",
+            "--schema",
+            str(schema_path),
+            "--x",
+            "InspectionDate",
+            "--y",
+            "ConcreteStrength",
+            "--out",
+            str(output_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Chart saved to" in result.stdout
+    assert output_path.exists()
+    assert output_path.stat().st_size > 0
+
+
+def test_chart_command_text_axis_exits_nonzero(tmp_path: Path) -> None:
+    csv_path, schema_path = _write_bridges_fixture(tmp_path)
+
+    result = runner.invoke(
+        app,
+        [
+            "chart",
+            str(csv_path),
+            "SELECT * FROM Bridges",
+            "--schema",
+            str(schema_path),
+            "--x",
+            "Name",
+            "--y",
+            "ConcreteStrength",
+            "--out",
+            str(tmp_path / "chart.png"),
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Error:" in result.output
