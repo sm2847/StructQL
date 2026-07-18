@@ -25,9 +25,21 @@ WHERE Depth > 20m
 ```
 
 ```bash
-structql import Bridges.csv --table Bridges
-structql query "SELECT * FROM Bridges WHERE ConcreteStrength < 35MPa"
-structql chart "SELECT * FROM Piles" --x Depth --y CutoffLoad --out piles.png
+structql query Bridges.csv "SELECT * FROM Bridges WHERE ConcreteStrength < 35MPa" \
+  --schema Bridges.schema.json
+```
+
+A schema file declares each column's type (`TEXT`, `NUMBER`, or `QUANTITY`):
+
+```json
+{
+  "table_name": "Bridges",
+  "columns": {
+    "Name": "TEXT",
+    "ConcreteStrength": "QUANTITY",
+    "InspectionDate": "NUMBER"
+  }
+}
 ```
 
 ## Status
@@ -75,7 +87,9 @@ data came from CSV, an in-memory table, or (eventually) a file-backed store.
 - `SELECT ... FROM ... WHERE ...` with `=, !=, <, >, <=, >=` and `AND`/`OR`
 - Typed values: quantities (`35MPa`, `20m`), bare numbers, quoted strings
 - CSV import into typed, queryable tables
-- CLI (`import`, `query`, `chart`)
+- CLI (`structql query <csv> <query> --schema <schema.json>`) - each
+  invocation imports the CSV and runs the query within one process, since
+  v1 storage is in-memory only (see below)
 - Chart export from query results
 
 ## Explicitly out of scope (v1) — Future Work
@@ -97,13 +111,13 @@ pytest
 ## Roadmap
 
 - [x] M0 — Repo scaffolding, README spec, CI, pre-commit
-- [ ] M1 — Domain types (`Quantity`, `Unit`, `Row`, `Schema`)
-- [ ] M2 — CSV importer
-- [ ] M3 — Storage layer
-- [ ] M4 — Lexer
-- [ ] M5 — Parser
-- [ ] M6 — Executor
-- [ ] M7 — CLI
+- [x] M1 — Domain types (`Quantity`, `Unit`, `Row`, `Schema`)
+- [x] M2 — CSV importer
+- [x] M3 — Storage layer
+- [x] M4 — Lexer
+- [x] M5 — Parser
+- [x] M6 — Executor
+- [x] M7 — CLI
 - [ ] M8 — Charts
 - [ ] M9 — Polish, v1.0.0
 
