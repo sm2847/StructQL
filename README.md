@@ -27,6 +27,9 @@ WHERE Depth > 20m
 ```bash
 structql query Bridges.csv "SELECT * FROM Bridges WHERE ConcreteStrength < 35MPa" \
   --schema Bridges.schema.json
+
+structql chart Piles.csv "SELECT * FROM Piles WHERE Depth > 20m" \
+  --schema Piles.schema.json --x Depth --y CutoffLoad --out piles.png
 ```
 
 A schema file declares each column's type (`TEXT`, `NUMBER`, or `QUANTITY`):
@@ -118,7 +121,7 @@ pytest
 - [x] M5 — Parser
 - [x] M6 — Executor
 - [x] M7 — CLI
-- [ ] M8 — Charts
+- [x] M8 — Charts
 - [ ] M9 — Polish, v1.0.0
 
 ## License

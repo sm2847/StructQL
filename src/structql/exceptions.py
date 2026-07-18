@@ -40,3 +40,14 @@ class IncompatibleUnitsError(StructQLError):
     not at schema-validation time - the caller may want to handle "nonsense
     comparison" differently from "column doesn't exist".
     """
+
+
+class ChartError(StructQLError):
+    """
+    Raised when a QueryResult can't be rendered as a chart: a requested
+    axis column doesn't exist in the result, holds non-numeric TEXT
+    values, mixes incompatible units within one column (e.g. some rows in
+    metres, some in millimetres - plotting the raw numbers together would
+    silently produce a misleading chart), or the image can't be written
+    to disk.
+    """
