@@ -1,0 +1,8 @@
+{
+  "table_name": "Piles",
+  "columns": {
+    "PileID": "TEXT",
+    "Depth": "QUANTITY",
+    "CutoffLoad": "QUANTITY"
+  }
+}

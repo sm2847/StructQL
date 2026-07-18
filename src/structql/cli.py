@@ -39,10 +39,10 @@ def _main() -> None:
     Registering this callback - even though it does nothing itself -
     forces Typer to always require an explicit subcommand name (e.g.
     `structql query ...`), rather than silently collapsing to the single
-    top-level command it would otherwise do while `query` is the only
-    command registered. Without this, the CLI's invocation shape would
-    change out from under existing users the moment a second command
-    (`chart`, M8) is added.
+    top-level command it would otherwise do if `query` were the only
+    command registered. This was added in M7, before the `chart` command
+    (M8) existed, specifically so adding `chart` wouldn't change the
+    invocation shape out from under `query`'s existing usage.
     """
 
 

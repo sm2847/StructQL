@@ -4,7 +4,7 @@ Parser: converts a token stream into an AST (ast_nodes.py).
 Responsibility boundary: syntax only. The parser checks that a query is
 *grammatically* well-formed (e.g. WHERE is followed by a valid condition).
 It does NOT check that a referenced table or column actually exists - that
-is a semantic concern, handled by the executor/catalog at execution time
+is a semantic concern, handled by the executor at execution time
 (M6). This mirrors the lexer's boundary: each layer only validates what it
 can know without looking further down the pipeline.
 
