@@ -2,7 +2,7 @@
 
 <!-- Replace OWNER/structql below with your actual GitHub path once pushed,
      e.g. shanjeev/structql, so the badge reflects your repo's real CI status. -->
-![CI](https://github.com/OWNER/structql/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/sm2847/structql/actions/workflows/ci.yml/badge.svg)
 
 A domain-specific query language for structural engineering datasets — query
 CSV exports of bridges, piles, and inspection records the way you'd query a
