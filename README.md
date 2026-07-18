@@ -1,5 +1,9 @@
 # StructQL
 
+<!-- Replace OWNER/structql below with your actual GitHub path once pushed,
+     e.g. shanjeev/structql, so the badge reflects your repo's real CI status. -->
+![CI](https://github.com/OWNER/structql/actions/workflows/ci.yml/badge.svg)
+
 A domain-specific query language for structural engineering datasets — query
 CSV exports of bridges, piles, and inspection records the way you'd query a
 database, with **engineering units built into the language itself**.
@@ -47,7 +51,60 @@ A schema file declares each column's type (`TEXT`, `NUMBER`, or `QUANTITY`):
 
 ## Status
 
-🚧 Early development. See [Roadmap](#roadmap).
+✅ v1 complete — all core milestones shipped. See [Roadmap](#roadmap) and
+[Future Work](#explicitly-out-of-scope-v1--future-work) for what's next.
+
+## Getting Started
+
+The `examples/` folder in this repo has real, runnable sample data - the
+same data used throughout development. Clone the repo, install, and try it:
+
+```bash
+pip install -e .
+
+structql query examples/Bridges.csv \
+  "SELECT * FROM Bridges WHERE ConcreteStrength < 35MPa AND InspectionDate > 2023" \
+  --schema examples/Bridges.schema.json
+```
+
+```
+Name               ConcreteStrength  InspectionDate
+-----------------  ----------------  --------------
+Jesus Lock Bridge  32.0MPa           2024
+(1 row)
+```
+
+```bash
+structql chart examples/Piles.csv "SELECT * FROM Piles WHERE Depth > 20m" \
+  --schema examples/Piles.schema.json --x Depth --y CutoffLoad --out piles.png
+```
+
+produces:
+
+![Example chart: CutoffLoad vs Depth for piles deeper than 20m](docs/piles_chart_example.png)
+
+## Project structure
+
+```
+structql/
+├── src/structql/
+│   ├── domain/          # Core value types: Quantity, Unit, Schema, Row
+│   ├── lexer/            # Query string -> tokens
+│   ├── parser/            # Tokens -> AST
+│   ├── engine/            # AST + storage -> QueryResult (business logic)
+│   ├── storage/           # StorageEngine interface + in-memory implementation
+│   ├── importers/         # CSV + schema file -> typed rows
+│   ├── charts/            # QueryResult -> saved chart image
+│   ├── cli.py              # Typer commands (query, chart) - thin wiring only
+│   └── exceptions.py        # Shared exception hierarchy
+├── tests/                 # One test file per module above
+├── examples/               # Real, runnable sample data (used in Getting Started)
+└── docs/                    # README assets (e.g. the example chart)
+```
+
+Each folder under `src/structql/` is a layer with one job (see
+[Architecture](#architecture) below) - this mapping from folder to
+responsibility is deliberate, not incidental.
 
 ## Architecture
 
@@ -122,8 +179,8 @@ pytest
 - [x] M6 — Executor
 - [x] M7 — CLI
 - [x] M8 — Charts
-- [ ] M9 — Polish, v1.0.0
+- [x] M9 — Polish, v1.0.0
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
