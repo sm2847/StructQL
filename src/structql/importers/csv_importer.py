@@ -1,5 +1,5 @@
 """
-CSV importer: reads a CSV file against a declared Schema and produces typed
+CSV importer: reads CSV text against a declared Schema and produces typed
 Row objects.
 
 Design decision: schemas are declared explicitly by the caller, not
@@ -13,6 +13,11 @@ push that ambiguity to import time, where it's cheap to catch and fix.
 This module is also where "untyped string from the outside world" becomes
 "typed Python value" - exactly once. Nothing downstream (storage, executor,
 CLI, charts) ever looks at a raw CSV string again.
+
+Split into import_csv (reads a file path) and import_csv_text (parses
+already-in-memory text) so the FastAPI layer (api/app.py, M10) can reuse
+the exact same parsing logic for uploaded files without writing them to a
+temp file first just to re-read them.
 """
 
 from __future__ import annotations
@@ -44,8 +49,20 @@ def import_csv(path: str | Path, schema: Schema) -> list[Row]:
     except OSError as exc:
         raise StorageError(f"Could not read CSV file {path}: {exc}") from None
 
+    return import_csv_text(raw_text, schema, source_description=str(path))
+
+
+def import_csv_text(raw_text: str, schema: Schema, source_description: str = "<csv>") -> list[Row]:
+    """
+    Parse CSV text already held in memory (e.g. an uploaded file's
+    contents) against `schema` and return one Row per data line.
+
+    `source_description` is used only in error messages (e.g. "row 2,
+    column 'ConcreteStrength'") - pass a filename if you have one, so
+    errors still point somewhere meaningful even without a real path.
+    """
     reader = csv.DictReader(raw_text.splitlines())
-    _validate_header(reader.fieldnames, schema, path)
+    _validate_header(reader.fieldnames, schema, source_description)
 
     rows: list[Row] = []
     # enumerate from 2: row 1 is the header, so the first data row is "row 2"
@@ -56,14 +73,14 @@ def import_csv(path: str | Path, schema: Schema) -> list[Row]:
         for column_name, column_type in schema.columns.items():
             raw_cell = raw_row[column_name]
             typed_values[column_name] = _convert_cell(
-                raw_cell, column_type, column_name, line_number, path
+                raw_cell, column_type, column_name, line_number, source_description
             )
         rows.append(Row(values=typed_values))
 
     return rows
 
 
-def _validate_header(fieldnames: list[str] | None, schema: Schema, path: Path) -> None:
+def _validate_header(fieldnames: list[str] | None, schema: Schema, source: str) -> None:
     """Fail fast on a header mismatch rather than importing partial/misaligned
     data - a missing or extra column is almost certainly a mistake worth
     surfacing immediately, not something to silently work around."""
@@ -73,14 +90,14 @@ def _validate_header(fieldnames: list[str] | None, schema: Schema, path: Path) -
     missing = expected - actual
     if missing:
         raise SchemaError(
-            f"{path}: CSV is missing column(s) required by schema "
+            f"{source}: CSV is missing column(s) required by schema "
             f"'{schema.table_name}': {', '.join(sorted(missing))}"
         )
 
     unexpected = actual - expected
     if unexpected:
         raise SchemaError(
-            f"{path}: CSV has column(s) not declared in schema "
+            f"{source}: CSV has column(s) not declared in schema "
             f"'{schema.table_name}': {', '.join(sorted(unexpected))}"
         )
 
@@ -90,10 +107,10 @@ def _convert_cell(
     column_type: ColumnType,
     column_name: str,
     line_number: int,
-    path: Path,
+    source: str,
 ) -> Value:
     """Convert one CSV cell to its declared type, wrapping low-level parse
-    errors with enough context (file, row, column) to actually act on."""
+    errors with enough context (source, row, column) to actually act on."""
     try:
         if column_type is ColumnType.TEXT:
             return raw.strip()
@@ -102,7 +119,7 @@ def _convert_cell(
         if column_type is ColumnType.QUANTITY:
             return Quantity.parse(raw)
     except ValueError as exc:
-        raise SchemaError(f"{path}, row {line_number}, column '{column_name}': {exc}") from None
+        raise SchemaError(f"{source}, row {line_number}, column '{column_name}': {exc}") from None
 
     # Unreachable while ColumnType only has the three members above, but
     # keeps this function honest if a new ColumnType is ever added without

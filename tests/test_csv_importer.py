@@ -94,3 +94,24 @@ def test_import_malformed_number_raises_schema_error(tmp_path: Path) -> None:
 def test_import_missing_file_raises_storage_error(tmp_path: Path) -> None:
     with pytest.raises(StorageError, match="not found"):
         import_csv(tmp_path / "does_not_exist.csv", _bridges_schema())
+
+
+def test_import_csv_text_parses_in_memory_content_directly() -> None:
+    # Same underlying logic import_csv uses, but no filesystem touched -
+    # exercises the split that lets the API (M10) parse uploaded file
+    # contents without writing a temp file first.
+    from structql.importers.csv_importer import import_csv_text
+
+    csv_text = "Name,ConcreteStrength,InspectionDate\nJesus Lock Bridge,32MPa,2022\n"
+    rows = import_csv_text(csv_text, _bridges_schema(), source_description="upload.csv")
+
+    assert len(rows) == 1
+    assert rows[0].get("Name") == "Jesus Lock Bridge"
+
+
+def test_import_csv_text_error_message_uses_source_description() -> None:
+    from structql.importers.csv_importer import import_csv_text
+
+    csv_text = "Name,ConcreteStrength,InspectionDate\nJesus Lock Bridge,bad,2022\n"
+    with pytest.raises(SchemaError, match="upload.csv, row 2"):
+        import_csv_text(csv_text, _bridges_schema(), source_description="upload.csv")

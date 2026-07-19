@@ -61,3 +61,15 @@ def test_unknown_column_type_raises_schema_error(tmp_path: Path) -> None:
     )
     with pytest.raises(SchemaError, match="unrecognised type"):
         load_schema(path)
+
+
+def test_parse_schema_parses_in_memory_text_directly() -> None:
+    # Same underlying logic load_schema uses, but no filesystem touched -
+    # exercises the split that lets the API (M10) parse an uploaded schema
+    # file's contents without writing it to disk first.
+    from structql.importers.schema_loader import parse_schema
+
+    text = json.dumps({"table_name": "Bridges", "columns": {"Name": "TEXT"}})
+    schema = parse_schema(text, source_description="upload.schema.json")
+
+    assert schema.table_name == "Bridges"
