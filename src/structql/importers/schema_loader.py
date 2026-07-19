@@ -17,6 +17,11 @@ more explicit with zero extra files, but get unwieldy past a handful of
 columns and don't scale to a real engineering dataset with a dozen fields.
 A schema file also becomes a second real, committable artifact describing
 a dataset - documentation of what the data IS, not just how to query it.
+
+Split into load_schema (reads a file path) and parse_schema (parses
+already-in-memory text), mirroring the same split in csv_importer.py -
+the FastAPI layer (api/app.py, M10) needs to parse an uploaded schema
+file's contents without writing it to disk first.
 """
 
 from __future__ import annotations
@@ -44,19 +49,26 @@ def load_schema(path: str | Path) -> Schema:
     except OSError as exc:
         raise SchemaError(f"Could not read schema file {path}: {exc}") from None
 
+    return parse_schema(raw_text, source_description=str(path))
+
+
+def parse_schema(raw_text: str, source_description: str = "<schema>") -> Schema:
+    """Parse Schema JSON already held in memory (e.g. an uploaded file's
+    contents). `source_description` is used only in error messages."""
     try:
         data = json.loads(raw_text)
     except json.JSONDecodeError as exc:
-        raise SchemaError(f"Schema file {path} is not valid JSON: {exc}") from None
+        raise SchemaError(f"Schema {source_description} is not valid JSON: {exc}") from None
 
     try:
         table_name = data["table_name"]
         raw_columns = data["columns"]
     except KeyError as exc:
-        raise SchemaError(f"Schema file {path} is missing required key: {exc}") from None
+        raise SchemaError(f"Schema {source_description} is missing required key: {exc}") from None
     except TypeError:
         raise SchemaError(
-            f"Schema file {path} must contain a JSON object with 'table_name' and 'columns'"
+            f"Schema {source_description} must contain a JSON object with "
+            f"'table_name' and 'columns'"
         ) from None
 
     columns: dict[str, ColumnType] = {}
@@ -66,7 +78,7 @@ def load_schema(path: str | Path) -> Schema:
         except ValueError:
             known = ", ".join(t.value for t in ColumnType)
             raise SchemaError(
-                f"Schema file {path}, column '{column_name}': unrecognised type "
+                f"Schema {source_description}, column '{column_name}': unrecognised type "
                 f"'{type_text}' (expected one of: {known})"
             ) from None
 
