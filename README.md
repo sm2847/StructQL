@@ -51,7 +51,8 @@ A schema file declares each column's type (`TEXT`, `NUMBER`, or `QUANTITY`):
 
 ## Status
 
-✅ v1 complete — all core milestones shipped. See [Roadmap](#roadmap) and
+✅ v1.1 complete — core query engine (v1.0.0) plus a FastAPI web UI
+(v1.1.0). See [Roadmap](#roadmap) and
 [Future Work](#explicitly-out-of-scope-v1--future-work) for what's next.
 
 ## Getting Started
@@ -83,6 +84,19 @@ produces:
 
 ![Example chart: CutoffLoad vs Depth for piles deeper than 20m](docs/piles_chart_example.png)
 
+### Web UI
+
+```bash
+pip install -e ".[api]"
+structql serve
+```
+
+Open `http://127.0.0.1:8000` in a browser: upload a CSV and schema file,
+write a query, and run it or generate a chart, without touching the
+command line. The web UI is a second transport for the exact same
+query pipeline the CLI uses (`engine/executor.py`, `charts/
+chart_export.py`) - it adds no query logic of its own.
+
 ## Project structure
 
 ```
@@ -95,7 +109,8 @@ structql/
 │   ├── storage/           # StorageEngine interface + in-memory implementation
 │   ├── importers/         # CSV + schema file -> typed rows
 │   ├── charts/            # QueryResult -> saved chart image
-│   ├── cli.py              # Typer commands (query, chart) - thin wiring only
+│   ├── api/                # FastAPI app + static browser frontend
+│   ├── cli.py              # Typer commands (query, chart, serve) - thin wiring only
 │   └── exceptions.py        # Shared exception hierarchy
 ├── tests/                 # One test file per module above
 ├── examples/               # Real, runnable sample data (used in Getting Started)
@@ -129,17 +144,26 @@ Query string ──▶ Lexer ──▶ Parser ──▶ AST
                                         ▼
                                   QueryResult
                                         │
-                        ┌───────────────┴────────────────┐
-                        ▼                                 ▼
-                 ┌────────────┐                    ┌────────────┐
-                 │    CLI     │                    │   Charts   │
-                 └────────────┘                    └────────────┘
+                ┌───────────────┬──────┴──────┬───────────────┐
+                ▼                ▼             ▼               ▼
+         ┌────────────┐  ┌────────────┐  ┌──────────┐  ┌──────────────┐
+         │    CLI     │  │   Charts   │  │ FastAPI  │  │ Static HTML  │
+         │ (query/    │  │ (matplotlib│  │  (HTTP   │  │  frontend    │
+         │  chart)    │  │  → PNG)    │  │  layer)  │  │ (browser UI) │
+         └────────────┘  └────────────┘  └────┬─────┘  └──────┬───────┘
+                                                └───────────────┘
+                                          (API calls Executor + Charts
+                                           directly, same as the CLI does)
 ```
 
 **Design principle:** parsing, execution, and storage are separate modules
-that only talk to each other through small interfaces. The CLI and charting
-layer both consume a plain `QueryResult` — neither knows or cares whether the
-data came from CSV, an in-memory table, or (eventually) a file-backed store.
+that only talk to each other through small interfaces. The CLI, the web
+API, and the charting layer all consume a plain `QueryResult` — none of
+them know or care whether the data came from CSV, an in-memory table, or
+(eventually) a file-backed store. The web UI (`structql serve`) is proof
+of this: it's a second transport for the exact same query pipeline the
+CLI uses, added without changing a single line in `domain/`, `engine/`,
+or `storage/`.
 
 ## In scope (v1)
 
@@ -151,6 +175,9 @@ data came from CSV, an in-memory table, or (eventually) a file-backed store.
   invocation imports the CSV and runs the query within one process, since
   v1 storage is in-memory only (see below)
 - Chart export from query results
+- Web UI (`structql serve`) - a FastAPI + browser frontend exposing the
+  same query/chart pipeline over HTTP, for anyone who'd rather not use
+  the command line
 
 ## Explicitly out of scope (v1) — Future Work
 
@@ -180,6 +207,7 @@ pytest
 - [x] M7 — CLI
 - [x] M8 — Charts
 - [x] M9 — Polish, v1.0.0
+- [x] M10 — FastAPI web UI, v1.1.0
 
 ## License
 

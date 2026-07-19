@@ -1,6 +1,6 @@
 [project]
 name = "structql"
-version = "0.1.0"
+version = "1.1.0"
 description = "A domain-specific query language for structural engineering datasets."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -19,6 +19,20 @@ dev = [
     "ruff>=0.5.0",
     "black>=24.0.0",
     "pre-commit>=3.7.0",
+    # Included directly (not via a self-referential extra, for broader
+    # pip/setuptools version compatibility) so `pip install -e ".[dev]"`
+    # alone is enough to run the full test suite, including api/ tests.
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "python-multipart>=0.0.9",
+    "httpx2>=2.7.0",  # required by starlette.testclient.TestClient (used in test_api.py)
+]
+# Separate from dev: installing just the web UI (no test/lint tooling)
+# for someone who only wants to run `structql serve`.
+api = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.scripts]
@@ -30,6 +44,14 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Without this, `static/index.html` only works under `pip install -e .`
+# (an editable install points straight at the source tree). A real built
+# wheel needs to be told explicitly to bundle non-.py files - otherwise
+# `structql serve` would 404 on "/" for anyone who installed a real
+# release instead of cloning the repo.
+[tool.setuptools.package-data]
+"structql.api" = ["static/*.html"]
 
 # --- Ruff: linting + import sorting -----------------------------------
 # We lean on Ruff for linting (it subsumes flake8/isort/pyupgrade) and

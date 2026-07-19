@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StructQL — Query Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Blueprint drafting-sheet palette: real blueprints are white ink on
+       a deep cyanotype blue, with a red pencil used for markups/redlines.
+       Grounds the UI in the subject (engineering drawings) instead of a
+       generic dashboard look. */
+    --bp-bg: #0f3358;
+    --bp-panel: #133b64;
+    --bp-panel-alt: #164573;
+    --bp-line: #e7f0fb;
+    --bp-muted: #85a5c7;
+    --bp-grid: rgba(231, 240, 251, 0.07);
+    --bp-accent: #e2572b;
+    --bp-accent-dim: rgba(226, 87, 43, 0.35);
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background-color: var(--bp-bg);
+    background-image:
+      linear-gradient(var(--bp-grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--bp-grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--bp-line);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+  }
+
+  a { color: var(--bp-line); }
+
+  .sheet {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+  }
+
+  /* --- Title block, like the corner stamp on a real engineering drawing --- */
+  .title-block {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1px solid var(--bp-line);
+    padding-bottom: 16px;
+    margin-bottom: 32px;
+  }
+
+  .title-block h1 {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 28px;
+    letter-spacing: 0.02em;
+    margin: 0 0 4px;
+  }
+
+  .title-block p {
+    margin: 0;
+    color: var(--bp-muted);
+    font-size: 14px;
+  }
+
+  .title-block .meta {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--bp-muted);
+    line-height: 1.6;
+  }
+
+  /* --- Panels, styled like drawing sheets with registration/crop marks --- */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    position: relative;
+    background: var(--bp-panel);
+    border: 1px solid var(--bp-line);
+    padding: 24px;
+  }
+
+  /* Corner registration marks - the signature visual element, borrowed
+     from print-plate alignment marks on real technical drawing sheets. */
+  .panel::before, .panel::after,
+  .panel .corner-br, .panel .corner-bl { content: ""; position: absolute; width: 14px; height: 14px; }
+  .panel::before { top: -1px; left: -1px; border-top: 2px solid var(--bp-accent); border-left: 2px solid var(--bp-accent); }
+  .panel::after { top: -1px; right: -1px; border-top: 2px solid var(--bp-accent); border-right: 2px solid var(--bp-accent); }
+  .panel .corner-bl { bottom: -1px; left: -1px; border-bottom: 2px solid var(--bp-accent); border-left: 2px solid var(--bp-accent); }
+  .panel .corner-br { bottom: -1px; right: -1px; border-bottom: 2px solid var(--bp-accent); border-right: 2px solid var(--bp-accent); }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    color: var(--bp-accent);
+    margin: 0 0 16px;
+  }
+
+  label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--bp-muted);
+    letter-spacing: 0.04em;
+    margin: 16px 0 6px;
+  }
+  label:first-of-type { margin-top: 0; }
+
+  input[type="file"],
+  input[type="text"],
+  textarea {
+    width: 100%;
+    background: var(--bp-panel-alt);
+    border: 1px solid var(--bp-muted);
+    color: var(--bp-line);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 9px 10px;
+    border-radius: 0; /* sharp edges - a drafting sheet, not a soft app UI */
+  }
+
+  textarea { min-height: 84px; resize: vertical; line-height: 1.5; }
+
+  input:focus-visible, textarea:focus-visible, button:focus-visible {
+    outline: 2px solid var(--bp-accent);
+    outline-offset: 2px;
+  }
+
+  .xy-row { display: flex; gap: 12px; }
+  .xy-row > div { flex: 1; }
+
+  button {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    background: var(--bp-accent);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    margin-top: 18px;
+    margin-right: 10px;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+  }
+  button:hover { background: #c94a22; }
+  button:disabled { background: var(--bp-muted); cursor: progress; }
+
+  @media (prefers-reduced-motion: reduce) {
+    button { transition: none; }
+  }
+
+  .error-banner {
+    display: none;
+    border: 1px solid var(--bp-accent);
+    color: var(--bp-line);
+    background: rgba(226, 87, 43, 0.12);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 10px 14px;
+    margin-top: 16px;
+  }
+  .error-banner.visible { display: block; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    margin-top: 16px;
+  }
+  th, td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--bp-grid);
+  }
+  th {
+    color: var(--bp-accent);
+    font-weight: 600;
+    border-bottom: 1px solid var(--bp-line);
+  }
+
+  .result-meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--bp-muted);
+    margin-top: 10px;
+  }
+
+  .chart-frame {
+    margin-top: 16px;
+    border: 1px solid var(--bp-line);
+    padding: 8px;
+    display: none;
+  }
+  .chart-frame.visible { display: block; }
+  .chart-frame img { display: block; width: 100%; }
+
+  .empty-state {
+    color: var(--bp-muted);
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <div class="title-block">
+    <div>
+      <h1>STRUCTQL</h1>
+      <p>Query workbench — structural engineering datasets</p>
+    </div>
+    <div class="meta">
+      SHEET 01&nbsp;&nbsp;·&nbsp;&nbsp;SCALE NTS<br />
+      REV v1.0.0
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div class="panel">
+      <span class="corner-bl"></span><span class="corner-br"></span>
+      <p class="eyebrow">01 — INPUT</p>
+
+      <label for="csv-file">CSV file</label>
+      <input type="file" id="csv-file" accept=".csv" />
+
+      <label for="schema-file">Schema file (JSON)</label>
+      <input type="file" id="schema-file" accept=".json" />
+
+      <label for="query">Query</label>
+      <textarea id="query" placeholder="SELECT * FROM Bridges WHERE ConcreteStrength < 35MPa AND InspectionDate > 2023"></textarea>
+
+      <div class="xy-row">
+        <div>
+          <label for="x-col">Chart X column (optional)</label>
+          <input type="text" id="x-col" placeholder="Depth" />
+        </div>
+        <div>
+          <label for="y-col">Chart Y column (optional)</label>
+          <input type="text" id="y-col" placeholder="CutoffLoad" />
+        </div>
+      </div>
+
+      <div>
+        <button id="run-query-btn">Run query</button>
+        <button id="run-chart-btn">Generate chart</button>
+      </div>
+
+      <div class="error-banner" id="error-banner"></div>
+    </div>
+
+    <div class="panel">
+      <span class="corner-bl"></span><span class="corner-br"></span>
+      <p class="eyebrow">02 — OUTPUT</p>
+      <div id="output-empty" class="empty-state">Run a query to see results here.</div>
+      <div id="output-table-wrap"></div>
+      <div id="output-meta" class="result-meta"></div>
+      <div class="chart-frame" id="chart-frame">
+        <img id="chart-image" alt="Generated chart" />
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const csvFileInput = document.getElementById('csv-file');
+  const schemaFileInput = document.getElementById('schema-file');
+  const queryInput = document.getElementById('query');
+  const xColInput = document.getElementById('x-col');
+  const yColInput = document.getElementById('y-col');
+  const runQueryBtn = document.getElementById('run-query-btn');
+  const runChartBtn = document.getElementById('run-chart-btn');
+  const errorBanner = document.getElementById('error-banner');
+  const outputEmpty = document.getElementById('output-empty');
+  const outputTableWrap = document.getElementById('output-table-wrap');
+  const outputMeta = document.getElementById('output-meta');
+  const chartFrame = document.getElementById('chart-frame');
+  const chartImage = document.getElementById('chart-image');
+
+  function showError(message) {
+    errorBanner.textContent = message;
+    errorBanner.classList.add('visible');
+  }
+
+  function clearError() {
+    errorBanner.classList.remove('visible');
+    errorBanner.textContent = '';
+  }
+
+  function requireInputs() {
+    if (!csvFileInput.files[0]) { showError('Choose a CSV file first.'); return false; }
+    if (!schemaFileInput.files[0]) { showError('Choose a schema JSON file first.'); return false; }
+    if (!queryInput.value.trim()) { showError('Enter a query first.'); return false; }
+    return true;
+  }
+
+  function buildForm(extra) {
+    const form = new FormData();
+    form.append('csv_file', csvFileInput.files[0]);
+    form.append('schema_file', schemaFileInput.files[0]);
+    form.append('query', queryInput.value.trim());
+    if (extra) {
+      for (const [key, value] of Object.entries(extra)) form.append(key, value);
+    }
+    return form;
+  }
+
+  function formatCell(value) {
+    if (value && typeof value === 'object' && 'unit' in value) {
+      return `${value.value}${value.unit}`;
+    }
+    return value;
+  }
+
+  function renderTable(result) {
+    outputEmpty.style.display = 'none';
+    if (result.rows.length === 0) {
+      outputTableWrap.innerHTML = '';
+      outputMeta.textContent = '0 rows';
+      return;
+    }
+    const headerRow = result.columns.map((c) => `<th>${c}</th>`).join('');
+    const bodyRows = result.rows
+      .map((row) => `<tr>${result.columns.map((c) => `<td>${formatCell(row[c])}</td>`).join('')}</tr>`)
+      .join('');
+    outputTableWrap.innerHTML = `<table><thead><tr>${headerRow}</tr></thead><tbody>${bodyRows}</tbody></table>`;
+    outputMeta.textContent = `${result.rows.length} row${result.rows.length === 1 ? '' : 's'}`;
+  }
+
+  async function runQuery() {
+    clearError();
+    if (!requireInputs()) return;
+
+    runQueryBtn.disabled = true;
+    runQueryBtn.textContent = 'Running…';
+    try {
+      const response = await fetch('/api/query', { method: 'POST', body: buildForm() });
+      const data = await response.json();
+      if (!response.ok) { showError(data.error || 'Query failed.'); return; }
+      renderTable(data);
+    } catch (err) {
+      showError('Request failed: ' + err.message);
+    } finally {
+      runQueryBtn.disabled = false;
+      runQueryBtn.textContent = 'Run query';
+    }
+  }
+
+  async function runChart() {
+    clearError();
+    if (!requireInputs()) return;
+    if (!xColInput.value.trim() || !yColInput.value.trim()) {
+      showError('Enter both an X and a Y column to generate a chart.');
+      return;
+    }
+
+    runChartBtn.disabled = true;
+    runChartBtn.textContent = 'Rendering…';
+    try {
+      const form = buildForm({ x: xColInput.value.trim(), y: yColInput.value.trim() });
+      const response = await fetch('/api/chart', { method: 'POST', body: form });
+      if (!response.ok) {
+        const data = await response.json();
+        showError(data.error || 'Chart generation failed.');
+        return;
+      }
+      const blob = await response.blob();
+      chartImage.src = URL.createObjectURL(blob);
+      chartFrame.classList.add('visible');
+    } catch (err) {
+      showError('Request failed: ' + err.message);
+    } finally {
+      runChartBtn.disabled = false;
+      runChartBtn.textContent = 'Generate chart';
+    }
+  }
+
+  runQueryBtn.addEventListener('click', runQuery);
+  runChartBtn.addEventListener('click', runChart);
+</script>
+
+</body>
+</html>
