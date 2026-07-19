@@ -108,6 +108,45 @@ def chart_command(
     typer.echo(f"Chart saved to {saved_path}")
 
 
+@app.command(name="serve")
+def serve_command(
+    host: str = typer.Option(
+        "127.0.0.1", "--host", help="Host to bind the web server to."
+    ),  # noqa: B008
+    port: int = typer.Option(
+        8000, "--port", "-p", help="Port to bind the web server to."
+    ),  # noqa: B008
+    reload: bool = typer.Option(  # noqa: B008
+        False, "--reload", help="Auto-reload on code changes (development only)."
+    ),
+) -> None:
+    """Start the StructQL web UI - a local server exposing the same
+    query/chart pipeline over HTTP with a browser frontend (api/app.py).
+
+    Requires the optional 'api' extra: pip install -e ".[api]"
+    """
+    # Imported lazily, inside the command, rather than at module level:
+    # fastapi/uvicorn are an OPTIONAL extra (pyproject.toml [project.
+    # optional-dependencies] api), not a core dependency. `structql query`
+    # and `structql chart` must keep working for anyone who installed just
+    # the base package - importing uvicorn at the top of this file would
+    # break the entire CLI for them just to support a command they may
+    # never use.
+    try:
+        import uvicorn
+    except ImportError:
+        typer.secho(
+            "The web UI requires extra dependencies. Install them with:\n"
+            '  pip install -e ".[api]"',
+            fg=typer.colors.RED,
+            err=True,
+        )
+        raise typer.Exit(code=1) from None
+
+    typer.echo(f"Starting StructQL web UI at http://{host}:{port}")
+    uvicorn.run("structql.api.app:app", host=host, port=port, reload=reload)
+
+
 def _run_query(csv_path: Path, query_string: str, schema_path: Path) -> QueryResult:
     """The actual import -> store -> parse -> execute pipeline, factored
     out of query_command so it's testable without going through Typer's
