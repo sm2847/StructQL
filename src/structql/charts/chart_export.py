@@ -1,24 +1,33 @@
 """
-Chart export: turns a QueryResult into a saved chart image.
+Chart export: turns a QueryResult into a saved chart image, on disk or as
+in-memory bytes.
 
 Depends only on QueryResult (engine/executor.py), not on storage or the
 executor's internals - it doesn't care whether the data came from a CSV or
 an in-memory table. That keeps charting swappable (a plotly backend later
-would be a new module implementing the same export_chart signature)
-without touching query logic.
+would be a new module implementing the same signatures) without touching
+query logic.
 
 Uses matplotlib's non-interactive "Agg" backend, set at import time,
-before pyplot is imported - the CLI runs headless (no display), and Agg
-is the backend that works correctly without one. Setting it anywhere
-other than "before the first pyplot import" is unreliable, so this
-module is deliberately the only place that imports pyplot.
+before pyplot is imported - both the CLI and the FastAPI server (M10) run
+headless (no display), and Agg is the backend that works correctly
+without one. Setting it anywhere other than "before the first pyplot
+import" is unreliable, so this module is deliberately the only place that
+imports pyplot.
+
+export_chart (saves to a path) and render_chart_bytes (returns PNG bytes,
+for the API to stream in an HTTP response) both delegate to _build_figure
+- the actual charting logic exists in exactly one place, regardless of
+where the result ends up.
 """
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 import matplotlib
+from matplotlib.figure import Figure
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402 - must follow matplotlib.use()
@@ -43,6 +52,42 @@ def export_chart(
     non-numeric (TEXT) values, mixes incompatible units within itself, or
     the result has no rows to plot.
     """
+    fig = _build_figure(result, x_column, y_column, title)
+
+    output_path = Path(output_path)
+    try:
+        fig.savefig(output_path)
+    except OSError as exc:
+        raise ChartError(f"Could not save chart to {output_path}: {exc}") from None
+    finally:
+        plt.close(fig)
+
+    return output_path
+
+
+def render_chart_bytes(
+    result: QueryResult,
+    x_column: str,
+    y_column: str,
+    title: str | None = None,
+) -> bytes:
+    """Render the same chart as export_chart, but return PNG bytes instead
+    of writing to disk - used by the FastAPI /api/chart endpoint (M10) to
+    stream an image directly in an HTTP response, with no temp file."""
+    fig = _build_figure(result, x_column, y_column, title)
+    buffer = io.BytesIO()
+    try:
+        fig.savefig(buffer, format="png")
+    finally:
+        plt.close(fig)
+    return buffer.getvalue()
+
+
+def _build_figure(result: QueryResult, x_column: str, y_column: str, title: str | None) -> Figure:
+    """Shared charting logic: validate, extract numeric values, build the
+    figure. Caller owns saving the result AND closing the figure - kept
+    that way (rather than closing here) so a save failure in export_chart
+    can still be caught before the figure is released."""
     if not result.rows:
         raise ChartError("Cannot chart an empty query result (0 rows) - broaden the query first.")
 
@@ -58,20 +103,7 @@ def export_chart(
     ax.set_ylabel(_axis_label(y_column, y_unit))
     ax.set_title(title or f"{y_column} vs {x_column}")
     fig.tight_layout()
-
-    output_path = Path(output_path)
-    try:
-        fig.savefig(output_path)
-    except OSError as exc:
-        raise ChartError(f"Could not save chart to {output_path}: {exc}") from None
-    finally:
-        # Always close the figure, even on a save failure - matplotlib
-        # keeps every open figure in memory until explicitly closed, which
-        # leaks across repeated calls (e.g. in a test suite or a long-lived
-        # process) if this were skipped.
-        plt.close(fig)
-
-    return output_path
+    return fig
 
 
 def _require_column(result: QueryResult, column: str) -> None:
