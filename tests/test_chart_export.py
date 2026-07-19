@@ -83,3 +83,20 @@ def test_export_chart_accepts_custom_title(tmp_path: Path) -> None:
     output = tmp_path / "chart.png"
     export_chart(_piles_result(), "Depth", "CutoffLoad", output, title="Pile Capacity")
     assert output.exists()
+
+
+def test_render_chart_bytes_returns_valid_png_bytes() -> None:
+    from structql.charts.chart_export import render_chart_bytes
+
+    png_bytes = render_chart_bytes(_piles_result(), "Depth", "CutoffLoad")
+
+    assert isinstance(png_bytes, bytes)
+    assert len(png_bytes) > 0
+    assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"  # PNG file signature
+
+
+def test_render_chart_bytes_raises_chart_error_same_as_export_chart() -> None:
+    from structql.charts.chart_export import render_chart_bytes
+
+    with pytest.raises(ChartError, match="not in the query result"):
+        render_chart_bytes(_piles_result(), "Depth", "NotAColumn")
