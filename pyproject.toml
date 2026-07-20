@@ -1,6 +1,6 @@
 [project]
 name = "structql"
-version = "1.1.0"
+version = "0.1.0"
 description = "A domain-specific query language for structural engineering datasets."
 readme = "README.md"
 requires-python = ">=3.11"
